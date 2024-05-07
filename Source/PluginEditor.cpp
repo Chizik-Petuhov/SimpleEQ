@@ -336,7 +336,7 @@ void ResponseCurveComponent::paint (juce::Graphics& g)
         auto leftChannelFFTPath = leftPathProducer.getPath();
         leftChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
         
-        g.setColour(Colour(97u, 18u, 167u)); //purple-
+        g.setColour(Colour(97u, 100u, 200u)); //purple-
         g.strokePath(leftChannelFFTPath, PathStrokeType(1.f));
         
         auto rightChannelFFTPath = rightPathProducer.getPath();
@@ -550,6 +550,16 @@ void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate)
         if( leftChannelFFTDataGenerator.getFFTData( fftData) )
         {
             pathProducer.generatePath(fftData, fftBounds, fftSize, binWidth, -48.f);
+            if (true/*auto on*/)
+            {
+                itWasAnalized = true;
+                this->pushFFTSamle(pathProducer.analize(fftData, fftSize, binWidth, -48.f));
+            }
+            else if (itWasAnalized)
+            {
+
+                itWasAnalized = false;
+            }
         }
     }
     
@@ -561,14 +571,17 @@ void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate)
 
 void ResponseCurveComponent::timerCallback()
 {
-    if( shouldShowFFTAnalysis )
+    //тут добавим еще один if который дублирует логику но внедряет в нее анализ и изменение дорожек. две кнопки
+    // одна включает запись и анализ. другая по результатам анадиза выставояет фильтры
+    if (shouldShowFFTAnalysis)
     {
         auto fftBounds = getAnalysisArea().toFloat();
         auto sampleRate = audioProcessor.getSampleRate();
-        
+
         leftPathProducer.process(fftBounds, sampleRate);
         rightPathProducer.process(fftBounds, sampleRate);
     }
+    
 
     if( parametersChanged.compareAndSetBool(false, true) )
     {
@@ -646,7 +659,8 @@ highCutSlopeSliderAttachment(audioProcessor.apvts, "HighCut Slope", highCutSlope
 lowcutBypassButtonAttachment(audioProcessor.apvts, "LowCut Bypassed", lowcutBypassButton),
 peakBypassButtonAttachment(audioProcessor.apvts, "Peak Bypassed", peakBypassButton),
 highcutBypassButtonAttachment(audioProcessor.apvts, "HighCut Bypassed", highcutBypassButton),
-analyzerEnabledButtonAttachment(audioProcessor.apvts, "Analyzer Enabled", analyzerEnabledButton)
+analyzerEnabledButtonAttachment(audioProcessor.apvts, "Analyzer Enabled", analyzerEnabledButton),
+autoEnabledButtonAttachment(audioProcessor.apvts, "Auto Enabled", autoEnabledButton)
 {
     peakFreqSlider.labels.add({0.f, "20Hz"});
     peakFreqSlider.labels.add({1.f, "20kHz"});
@@ -679,6 +693,7 @@ analyzerEnabledButtonAttachment(audioProcessor.apvts, "Analyzer Enabled", analyz
     lowcutBypassButton.setLookAndFeel(&lnf);
 
     analyzerEnabledButton.setLookAndFeel(&lnf);
+    autoEnabledButton.setLookAndFeel(&lnf);
     
     auto safePtr = juce::Component::SafePointer<SimpleEQAudioProcessorEditor>(this);
     peakBypassButton.onClick = [safePtr]()
@@ -724,6 +739,8 @@ analyzerEnabledButtonAttachment(audioProcessor.apvts, "Analyzer Enabled", analyz
             comp->responseCurveComponent.toggleAnalysisEnablement(enabled);
         }
     };
+
+    autoEnabledButton.onClick = [safePtr]() {};
     
     setSize (480, 500);
 }
@@ -751,7 +768,7 @@ void SimpleEQAudioProcessorEditor::paint(juce::Graphics &g)
     
     g.setFont(Font("Iosevka Term Slab", 30, 0)); //https://github.com/be5invis/Iosevka
     
-    String title { " " };
+    String title { "EQ" };
     g.setFont(30);
     auto titleWidth = g.getCurrentFont().getStringWidth(title);
     
@@ -849,6 +866,7 @@ std::vector<juce::Component*> SimpleEQAudioProcessorEditor::getComps()
         &lowcutBypassButton,
         &peakBypassButton,
         &highcutBypassButton,
-        &analyzerEnabledButton
+        &analyzerEnabledButton,
+        &autoEnabledButton
     };
 }

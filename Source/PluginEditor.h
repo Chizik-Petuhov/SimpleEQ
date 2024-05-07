@@ -40,6 +40,7 @@ struct FFTDataGenerator
         
         int numBins = (int)fftSize / 2;
         
+        
         //нормализуйте значения fft.
         for( int i = 0; i < numBins; ++i )
         {
@@ -54,6 +55,7 @@ struct FFTDataGenerator
                 v = 0.f;
             }
             fftData[i] = v;
+            
         }
         
         //преобразуйте их в децибелы
@@ -96,6 +98,18 @@ private:
     Fifo<BlockType> fftDataFifo;
 };
 
+struct FFTSample
+{
+    FFTSample(std::vector<int> retorDtata) {
+        this->retorDtata = retorDtata;
+    }
+
+    float getY(int iter) { return retorDtata[iter]; }
+
+private:
+    std::vector<int> retorDtata;
+};
+
 template<typename PathType>
 struct AnalyzerPathGenerator
 {
@@ -132,7 +146,8 @@ struct AnalyzerPathGenerator
         
         p.startNewSubPath(0, y);
 
-        const int pathResolution = 2; //вы можете провести линию к каждому пикселю "Разрешения пути".
+        const int pathResolution = 1; //вы можете провести линию к каждому пикселю "Разрешения пути".
+        
 
         for( int binNum = 1; binNum < numBins; binNum += pathResolution )
         {
@@ -149,7 +164,44 @@ struct AnalyzerPathGenerator
             }
         }
 
+        //тут можно подрезать финальные значения ачх
+
         pathFifo.push(p);
+    }
+
+    FFTSample analize(const std::vector<float>& renderData,
+        int fftSize,
+        float binWidth,
+        float negativeInfinity)
+    {
+        auto top = 1000.f;
+        auto bottom = 0.f;
+
+        int numBins = (int)fftSize / 2;
+
+
+        auto map = [bottom, top, negativeInfinity](float v)
+        {
+            return juce::jmap(v,
+                negativeInfinity, 0.f,
+                bottom, top);
+        };
+
+        auto y = map(renderData[0]);
+
+        //        jassert( !std::isnan(y) && !std::isinf(y) );
+        if (std::isnan(y) || std::isinf(y))
+            y = bottom;
+
+        std::vector<int> returnSamle;
+
+        for (int binNum = 1; binNum < numBins; binNum += 1)
+        {
+            y = map(renderData[binNum]);
+            returnSamle.push_back(y);
+        }
+
+        return FFTSample(returnSamle);
     }
 
     int getNumPathsAvailable() const
@@ -161,6 +213,8 @@ struct AnalyzerPathGenerator
     {
         return pathFifo.pull(path);
     }
+
+
 private:
     Fifo<PathType> pathFifo;
 };
@@ -215,6 +269,8 @@ private:
     juce::String suffix;
 };
 
+
+
 struct PathProducer
 {
     PathProducer(SingleChannelSampleFifo<SimpleEQAudioProcessor::BlockType>& scsf) :
@@ -225,14 +281,22 @@ struct PathProducer
     }
     void process(juce::Rectangle<float> fftBounds, double sampleRate);
     juce::Path getPath() { return leftChannelFFTPath; }
+    std::vector<FFTSample> getFFTSample() { return retorDtata; }
+    void pushFFTSamle(FFTSample sample) { retorDtata.push_back(sample); }
+
+
 private:
     SingleChannelSampleFifo<SimpleEQAudioProcessor::BlockType>* leftChannelFifo;
     
     juce::AudioBuffer<float> monoBuffer;
+
+    std::vector<FFTSample> retorDtata;
     
     FFTDataGenerator<std::vector<float>> leftChannelFFTDataGenerator;
     
     AnalyzerPathGenerator<juce::Path> pathProducer;
+
+    bool itWasAnalized = false;
     
     juce::Path leftChannelFFTPath;
 };
@@ -262,6 +326,8 @@ private:
 
     bool shouldShowFFTAnalysis = true;
 
+    bool recordPicsEnable = false;
+
     juce::Atomic<bool> parametersChanged { false };
     
     MonoChain monoChain;
@@ -287,6 +353,8 @@ private:
 };
 //==============================================================================
 struct PowerButton : juce::ToggleButton { };
+
+struct AutoButton : juce::ToggleButton { };
 
 struct AnalyzerButton : juce::ToggleButton
 {
@@ -354,13 +422,16 @@ private:
     
     PowerButton lowcutBypassButton, peakBypassButton, highcutBypassButton;
     AnalyzerButton analyzerEnabledButton;
+    AutoButton autoEnabledButton;
+
     
     using ButtonAttachment = APVTS::ButtonAttachment;
     
     ButtonAttachment lowcutBypassButtonAttachment,
                         peakBypassButtonAttachment,
                         highcutBypassButtonAttachment,
-                        analyzerEnabledButtonAttachment;
+                        analyzerEnabledButtonAttachment,
+                        autoEnabledButtonAttachment;
     
     LookAndFeel lnf;
 
