@@ -149,7 +149,7 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
     auto center = sliderBounds.toFloat().getCentre();
     auto radius = sliderBounds.getWidth() * 0.5f;
     
-    g.setColour(Colour(0u, 172u, 1u));
+    g.setColour(Colour(207u, 101u, 134u));
     g.setFont(getTextHeight());
     
     auto numChoices = labels.size();
@@ -520,7 +520,7 @@ void ResponseCurveComponent::parameterValueChanged(int parameterIndex, float new
     parametersChanged.set(true);
 }
 
-void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate)
+void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate, bool autoON)
 {
     juce::AudioBuffer<float> tempIncomingBuffer;
     while( leftChannelFifo->getNumCompleteBuffersAvailable() > 0 )
@@ -550,19 +550,18 @@ void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate)
         if( leftChannelFFTDataGenerator.getFFTData( fftData) )
         {
             pathProducer.generatePath(fftData, fftBounds, fftSize, binWidth, -48.f);
-            if (true/*auto on*/)
+            if (autoON)
             {
                 itWasAnalized = true;
-                this->pushFFTSamle(pathProducer.analize(fftData, fftSize, binWidth, -48.f));
+                pushFFTSamle(pathProducer.analize(fftData, fftSize, binWidth, -48.f));
             }
             else if (itWasAnalized)
             {
-
+                generateNewFilters();
                 itWasAnalized = false;
             }
         }
     }
-    
     while( pathProducer.getNumPathsAvailable() > 0 )
     {
         pathProducer.getPath( leftChannelFFTPath );
@@ -571,15 +570,14 @@ void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate)
 
 void ResponseCurveComponent::timerCallback()
 {
-    //тут добавим еще один if который дублирует логику но внедряет в нее анализ и изменение дорожек. две кнопки
-    // одна включает запись и анализ. другая по результатам анадиза выставояет фильтры
+    //тут добавим еще один if который дублирует логику но внедряет в нее анализ и изменение дорожек.
     if (shouldShowFFTAnalysis)
     {
         auto fftBounds = getAnalysisArea().toFloat();
         auto sampleRate = audioProcessor.getSampleRate();
 
-        leftPathProducer.process(fftBounds, sampleRate);
-        rightPathProducer.process(fftBounds, sampleRate);
+        leftPathProducer.process(fftBounds, sampleRate, recordPicsEnable);
+        rightPathProducer.process(fftBounds, sampleRate, recordPicsEnable);
     }
     
 
@@ -740,7 +738,13 @@ autoEnabledButtonAttachment(audioProcessor.apvts, "Auto Enabled", autoEnabledBut
         }
     };
 
-    autoEnabledButton.onClick = [safePtr]() {};
+    autoEnabledButton.onClick = [safePtr]() {
+        if (auto* comp = safePtr.getComponent())
+        {
+            auto enabled = comp->autoEnabledButton.getToggleState();
+            comp->responseCurveComponent.toggleAutoEnablement(!enabled);
+        }
+    };
     
     setSize (480, 500);
 }
@@ -752,6 +756,7 @@ SimpleEQAudioProcessorEditor::~SimpleEQAudioProcessorEditor()
     lowcutBypassButton.setLookAndFeel(nullptr);
 
     analyzerEnabledButton.setLookAndFeel(nullptr);
+    autoEnabledButton.setLookAndFeel(nullptr);
 }
 
 //==============================================================================
@@ -805,10 +810,6 @@ void SimpleEQAudioProcessorEditor::paint(juce::Graphics &g)
     g.drawFittedText("Peak", peakQualitySlider.getBounds(), juce::Justification::centredBottom, 1);
     g.drawFittedText("HighCut", highCutSlopeSlider.getBounds(), juce::Justification::centredBottom, 1);
     
-    auto buildDate = Time::getCompilationDate().toString(true, false);
-    auto buildTime = Time::getCompilationDate().toString(false, true);
-    g.setFont(12);
-    g.drawFittedText("Build: " + buildDate + "\n" + buildTime, highCutSlopeSlider.getBounds().withY(6), Justification::topRight, 2);
 }
 
 void SimpleEQAudioProcessorEditor::resized()
@@ -816,14 +817,23 @@ void SimpleEQAudioProcessorEditor::resized()
     auto bounds = getLocalBounds();
     bounds.removeFromTop(4);
     
-    auto analyzerEnabledArea = bounds.removeFromTop(25);
+    auto analyzerEnabledArea = bounds;
     
+    analyzerEnabledArea.setHeight(25);
     analyzerEnabledArea.setWidth(50);
     analyzerEnabledArea.setX(5);
     analyzerEnabledArea.removeFromTop(2);
     
     analyzerEnabledButton.setBounds(analyzerEnabledArea);
+
+    auto autoEnabledArea = bounds.removeFromTop(25);
+    autoEnabledArea.removeFromLeft(25);
+    autoEnabledArea.setWidth(25);
+    autoEnabledArea.setX(60);
+    autoEnabledArea.removeFromTop(2);
     
+    autoEnabledButton.setBounds(autoEnabledArea.removeFromTop(25));
+
     bounds.removeFromTop(5);
     
     float hRatio = 25.f / 100.f; //JUCE_LIVE_CONSTANT(25) / 100.f;

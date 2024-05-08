@@ -164,21 +164,20 @@ void SimpleEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    //Здесь будит вызов метода счета для аналайяера
 
     updateFilters();
     
     juce::dsp::AudioBlock<float> block(buffer);
     
 //    buffer.clear();
-//
-//    for( int i = 0; i < buffer.getNumSamples(); ++i )
-//    {
-//        buffer.setSample(0, i, osc.processSample(0));
-//    }
-//
-//    juce::dsp::ProcessContextReplacing<float> stereoContext(block);
-//    osc.process(stereoContext);
+
+ //   for( int i = 0; i < buffer.getNumSamples(); ++i )
+ //  {
+ //      buffer.setSample(0, i, osc.processSample(0));
+ //  }
+
+  //  juce::dsp::ProcessContextReplacing<float> stereoContext(block);
+ //   osc.process(stereoContext);
     
     auto leftBlock = block.getSingleChannelBlock(0);
     auto rightBlock = block.getSingleChannelBlock(1);

@@ -100,14 +100,14 @@ private:
 
 struct FFTSample
 {
-    FFTSample(std::vector<int> retorDtata) {
+    FFTSample(std::vector<float> retorDtata) {
         this->retorDtata = retorDtata;
     }
 
     float getY(int iter) { return retorDtata[iter]; }
-
+    std::vector<float> getData() { return retorDtata; }
 private:
-    std::vector<int> retorDtata;
+    std::vector<float> retorDtata;
 };
 
 template<typename PathType>
@@ -193,7 +193,7 @@ struct AnalyzerPathGenerator
         if (std::isnan(y) || std::isinf(y))
             y = bottom;
 
-        std::vector<int> returnSamle;
+        std::vector<float> returnSamle;
 
         for (int binNum = 1; binNum < numBins; binNum += 1)
         {
@@ -279,10 +279,49 @@ struct PathProducer
         leftChannelFFTDataGenerator.changeOrder(FFTOrder::order2048);
         monoBuffer.setSize(1, leftChannelFFTDataGenerator.getFFTSize());
     }
-    void process(juce::Rectangle<float> fftBounds, double sampleRate);
+    void process(juce::Rectangle<float> fftBounds, double sampleRate, bool autoON);
     juce::Path getPath() { return leftChannelFFTPath; }
-    std::vector<FFTSample> getFFTSample() { return retorDtata; }
-    void pushFFTSamle(FFTSample sample) { retorDtata.push_back(sample); }
+    std::list<FFTSample> getFFTSample() { return retorDtata; }
+    void pushFFTSamle(FFTSample sample) { 
+        retorDtata.push_back(sample);
+        if (retorDtata.size() > 4000)
+        {
+            retorDtata.pop_front();
+        }
+         
+        
+    }
+    
+    void generateNewFilters() {
+        std::vector<float> summData = retorDtata.begin()->getData();
+        int size = retorDtata.size();
+        retorDtata.pop_front();
+
+        for (auto i = retorDtata.begin(); i != retorDtata.end(); i++)
+        {
+            for (int j = 0; j < summData.size(); j++)
+            {
+                summData[j] += i->getY(j);
+            }
+        }
+        for (int j = 0; j < summData.size(); j++)
+        {
+            summData[j] = summData[j]/size;
+        }
+        // получили среднее значение для каждой полученной чистоты
+        retorDtata.clear();
+
+        int lowpick = 0;
+        int higtpick = size - 1;
+        float lowMax = summData[0];
+        for (int i = 1; lowMax <= summData[i]; i++)
+        {
+            lowMax = summData[i];
+        }
+
+
+
+    }
 
 
 private:
@@ -290,7 +329,7 @@ private:
     
     juce::AudioBuffer<float> monoBuffer;
 
-    std::vector<FFTSample> retorDtata;
+    std::list<FFTSample> retorDtata;
     
     FFTDataGenerator<std::vector<float>> leftChannelFFTDataGenerator;
     
@@ -320,6 +359,10 @@ juce::Timer
     void toggleAnalysisEnablement(bool enabled)
     {
         shouldShowFFTAnalysis = enabled;
+    }
+
+    void toggleAutoEnablement(bool enabled) {
+        recordPicsEnable = enabled;
     }
 private:
     SimpleEQAudioProcessor& audioProcessor;
@@ -353,8 +396,6 @@ private:
 };
 //==============================================================================
 struct PowerButton : juce::ToggleButton { };
-
-struct AutoButton : juce::ToggleButton { };
 
 struct AnalyzerButton : juce::ToggleButton
 {
@@ -420,14 +461,13 @@ private:
 
     std::vector<juce::Component*> getComps();
     
-    PowerButton lowcutBypassButton, peakBypassButton, highcutBypassButton;
+    PowerButton lowcutBypassButton, peakBypassButton, highcutBypassButton, autoEnabledButton;
     AnalyzerButton analyzerEnabledButton;
-    AutoButton autoEnabledButton;
 
     
     using ButtonAttachment = APVTS::ButtonAttachment;
     
-    ButtonAttachment lowcutBypassButtonAttachment,
+    ButtonAttachment    lowcutBypassButtonAttachment,
                         peakBypassButtonAttachment,
                         highcutBypassButtonAttachment,
                         analyzerEnabledButtonAttachment,
