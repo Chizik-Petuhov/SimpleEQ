@@ -557,7 +557,7 @@ void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate, 
             }
             else if (itWasAnalized)
             {
-                generateNewFilters();
+                generateNewFilters(binWidth);
                 itWasAnalized = false;
             }
         }
@@ -584,7 +584,7 @@ void ResponseCurveComponent::timerCallback()
     if( parametersChanged.compareAndSetBool(false, true) )
     {
         updateChain();
-        updateResponseCurve();
+        updateResponseCurve(); // при нажатии на слайдоры
     }
     
     repaint();

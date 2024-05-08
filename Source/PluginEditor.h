@@ -292,7 +292,7 @@ struct PathProducer
         
     }
     
-    void generateNewFilters() {
+    void generateNewFilters(float binWidth) {
         std::vector<float> summData = retorDtata.begin()->getData();
         int size = retorDtata.size();
         retorDtata.pop_front();
@@ -313,11 +313,98 @@ struct PathProducer
 
         int lowpick = 0;
         int higtpick = size - 1;
+        float higtMax = 0;
         float lowMax = summData[0];
         for (int i = 1; lowMax <= summData[i]; i++)
         {
             lowMax = summData[i];
+            lowpick = i;
         }
+        for (int i = size - 1; summData[i] == 0 && i > 0; i--)
+        {
+            higtpick = i - 1;
+        }
+        std::vector<int> firstHihtPics;
+        firstHihtPics.push_back(higtpick);
+        higtMax = summData[higtpick];
+
+
+        float rangeHigtSorce = 0.1;
+        int lowSlope = 2;
+        auto tmpnormalizedRange = juce::mapFromLog10(higtpick*binWidth, 20.f, 20000.f);
+        int numOfIterSerch = 5;
+        for (int i = 0; i < numOfIterSerch && tmpnormalizedRange > 0.5; i++)
+        {
+            tmpnormalizedRange = tmpnormalizedRange - rangeHigtSorce;
+            higtpick = std::floor(juce::mapToLog10(tmpnormalizedRange, 20.f, 20000.f)/ binWidth);
+
+            auto test = juce::mapFromLog10(500.f, 20.f, 20000.f);
+            auto test1 = juce::mapFromLog10(700.f, 20.f, 20000.f);
+            auto test2 = juce::mapFromLog10(900.f, 20.f, 20000.f);
+            auto test3 = juce::mapFromLog10(1100.f, 20.f, 20000.f);
+            auto test4 = juce::mapFromLog10(2400.f, 20.f, 20000.f);
+
+            for (int j = higtpick; j <= firstHihtPics.back(); j++)
+            {
+                if (summData[j] >= higtMax)
+                {
+                    higtMax = summData[j];
+                    higtpick = j;
+                }
+             
+            }
+            if (higtpick == firstHihtPics.back())
+            {
+                rangeHigtSorce += 0.1;
+                i--;
+            }
+            else
+            {
+                firstHihtPics.push_back(higtpick);
+            }
+        }
+        
+        
+        int slope = 4;
+        if (firstHihtPics.size() >= 3)
+        {
+            higtpick = firstHihtPics[2];
+
+            if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 5) { slope = 1; }
+            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 7) { slope = 2; }
+            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 11) { slope = 3; }
+        }
+        if (firstHihtPics.size() == 2)
+        {
+            higtpick = firstHihtPics[1];
+
+            if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 5) { slope = 1; }
+            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 7) { slope = 2; }
+            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 11) { slope = 3; }
+        }
+        if (firstHihtPics.size() == 1)
+        {
+            slope = 1;
+            higtpick = firstHihtPics[0];
+        }
+        int normalizeLowpic = juce::mapFromLog10(lowpick * binWidth, 20.f, 20000.f);
+        int normalizeHigtpic = juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f);
+        int normalizeMidpic = normalizeLowpic + (normalizeHigtpic - normalizeLowpic / 2);
+
+        int midpic = std::floor(juce::mapToLog10(higtpick * binWidth, 20.f, 20000.f)/ binWidth);
+        float midSlope = 0;
+        float midQuality = 0;
+
+        if (normalizeHigtpic - normalizeLowpic <= 0)
+        { midpic = 0;}
+        else
+        {
+            midSlope = 0.25 * (summData[midpic] - std::max(summData[lowpick], summData[higtpick]));
+            midQuality = normalizeHigtpic - normalizeLowpic;
+        }
+      
+
+
 
 
 
