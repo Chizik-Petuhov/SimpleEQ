@@ -557,7 +557,7 @@ void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate, 
             }
             else if (itWasAnalized)
             {
-                generateNewFilters(binWidth);
+                cleerRetorData();
                 itWasAnalized = false;
             }
         }
@@ -588,6 +588,28 @@ void ResponseCurveComponent::timerCallback()
     }
     
     repaint();
+}
+
+void ResponseCurveComponent::updateChain(ChainSettings settings) {
+    auto chainSettings = settings;
+
+    monoChain.setBypassed<ChainPositions::LowCut>(chainSettings.lowCutBypassed);
+    monoChain.setBypassed<ChainPositions::Peak>(chainSettings.peakBypassed);
+    monoChain.setBypassed<ChainPositions::HighCut>(chainSettings.highCutBypassed);
+
+    auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+    updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+
+    auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
+    auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
+
+    updateCutFilter(monoChain.get<ChainPositions::LowCut>(),
+        lowCutCoefficients,
+        chainSettings.lowCutSlope);
+
+    updateCutFilter(monoChain.get<ChainPositions::HighCut>(),
+        highCutCoefficients,
+        chainSettings.highCutSlope);
 }
 
 void ResponseCurveComponent::updateChain()
@@ -633,6 +655,9 @@ juce::Rectangle<int> ResponseCurveComponent::getAnalysisArea()
     bounds.removeFromBottom(4);
     return bounds;
 }
+
+
+
 //==============================================================================
 SimpleEQAudioProcessorEditor::SimpleEQAudioProcessorEditor (SimpleEQAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p),
@@ -738,11 +763,38 @@ autoEnabledButtonAttachment(audioProcessor.apvts, "Auto Enabled", autoEnabledBut
         }
     };
 
+
     autoEnabledButton.onClick = [safePtr]() {
         if (auto* comp = safePtr.getComponent())
         {
             auto enabled = comp->autoEnabledButton.getToggleState();
             comp->responseCurveComponent.toggleAutoEnablement(!enabled);
+            
+            if (enabled == true) { 
+                auto sampleRate = comp->responseCurveComponent.getSamplerate();
+                auto settings = comp->responseCurveComponent.getSettings();
+                settings = comp->responseCurveComponent.getNewFilters(settings);
+                
+                comp->lowCutFreqSlider.setValue(settings.lowCutFreq);
+                comp->highCutFreqSlider.setValue(settings.highCutFreq);
+                comp->peakFreqSlider.setValue(settings.peakFreq);
+                comp->peakQualitySlider.setValue(settings.peakQuality);
+                comp->peakGainSlider.setValue(settings.peakGainInDecibels);
+                if (settings.highCutSlope == Slope_12) { comp->highCutSlopeSlider.setValue(0); }
+                if (settings.highCutSlope == Slope_24) { comp->highCutSlopeSlider.setValue(1); }
+                if (settings.highCutSlope == Slope_36) { comp->highCutSlopeSlider.setValue(2); }
+                if (settings.highCutSlope == Slope_48) { comp->highCutSlopeSlider.setValue(3); }
+                if (settings.lowCutSlope == Slope_12) { comp->highCutSlopeSlider.setValue(0); }
+                if (settings.lowCutSlope == Slope_24) { comp->highCutSlopeSlider.setValue(1); }
+                if (settings.lowCutSlope == Slope_36) { comp->highCutSlopeSlider.setValue(2); }
+                if (settings.lowCutSlope == Slope_48) { comp->highCutSlopeSlider.setValue(3); }
+                comp->lowcutBypassButton.setToggleState(settings.lowCutBypassed, true);
+                comp->peakBypassButton.setToggleState(settings.peakBypassed, true);
+                comp->highcutBypassButton.setToggleState(settings.highCutBypassed, true);
+
+                comp->responseCurveComponent.updateChain(settings);
+                comp->responseCurveComponent.updateResponseCurve();
+            }
         }
     };
     

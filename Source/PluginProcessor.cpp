@@ -302,7 +302,7 @@ void SimpleEQAudioProcessor::updateHighCutFilters(const ChainSettings &chainSett
 void SimpleEQAudioProcessor::updateFilters()
 {
     auto chainSettings = getChainSettings(apvts);
-    
+
     updateLowCutFilters(chainSettings);
     updatePeakFilter(chainSettings);
     updateHighCutFilters(chainSettings);

@@ -125,7 +125,6 @@ struct AnalyzerPathGenerator
         auto top = fftBounds.getY();
         auto bottom = fftBounds.getHeight();
         auto width = fftBounds.getWidth();
-
         int numBins = (int)fftSize / 2;
 
         PathType p;
@@ -291,11 +290,19 @@ struct PathProducer
          
         
     }
+
+    void cleerRetorData() {
+        retorDtata.clear();
+    }
     
-    void generateNewFilters(float binWidth) {
+    ChainSettings generateNewFilters(ChainSettings cainSettings) {
+        if (retorDtata.size() == 0) { return cainSettings; }
         std::vector<float> summData = retorDtata.begin()->getData();
         int size = retorDtata.size();
         retorDtata.pop_front();
+
+        float binWidth = 23.4375;
+
 
         for (auto i = retorDtata.begin(); i != retorDtata.end(); i++)
         {
@@ -315,6 +322,7 @@ struct PathProducer
         int higtpick = size - 1;
         float higtMax = 0;
         float lowMax = summData[0];
+        if (lowMax == 0) { return cainSettings; }
         for (int i = 1; lowMax <= summData[i]; i++)
         {
             lowMax = summData[i];
@@ -330,19 +338,12 @@ struct PathProducer
 
 
         float rangeHigtSorce = 0.1;
-        int lowSlope = 2;
         auto tmpnormalizedRange = juce::mapFromLog10(higtpick*binWidth, 20.f, 20000.f);
         int numOfIterSerch = 5;
         for (int i = 0; i < numOfIterSerch && tmpnormalizedRange > 0.5; i++)
         {
             tmpnormalizedRange = tmpnormalizedRange - rangeHigtSorce;
             higtpick = std::floor(juce::mapToLog10(tmpnormalizedRange, 20.f, 20000.f)/ binWidth);
-
-            auto test = juce::mapFromLog10(500.f, 20.f, 20000.f);
-            auto test1 = juce::mapFromLog10(700.f, 20.f, 20000.f);
-            auto test2 = juce::mapFromLog10(900.f, 20.f, 20000.f);
-            auto test3 = juce::mapFromLog10(1100.f, 20.f, 20000.f);
-            auto test4 = juce::mapFromLog10(2400.f, 20.f, 20000.f);
 
             for (int j = higtpick; j <= firstHihtPics.back(); j++)
             {
@@ -364,34 +365,39 @@ struct PathProducer
             }
         }
         
-        
-        int slope = 4;
+        /// /////////////////////////
+
+
+        cainSettings.highCutSlope = Slope::Slope_12;
         if (firstHihtPics.size() >= 3)
         {
-            higtpick = firstHihtPics[2];
+            higtpick = firstHihtPics[1];
 
-            if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 5) { slope = 1; }
-            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 7) { slope = 2; }
-            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 11) { slope = 3; }
+            if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 5) { cainSettings.highCutSlope = Slope::Slope_48; }
+            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 7) { cainSettings.highCutSlope = Slope::Slope_36; }
+            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[1] * binWidth, 20.f, 20000.f)) < 11) { cainSettings.highCutSlope = Slope::Slope_24; }
         }
         if (firstHihtPics.size() == 2)
         {
             higtpick = firstHihtPics[1];
 
-            if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 5) { slope = 1; }
-            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 7) { slope = 2; }
-            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 11) { slope = 3; }
+            if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 5) { cainSettings.highCutSlope = Slope::Slope_48; }
+            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 7) { cainSettings.highCutSlope = Slope::Slope_36; }
+            else if ((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f) - juce::mapFromLog10(firstHihtPics[0] * binWidth, 20.f, 20000.f)) < 11) { cainSettings.highCutSlope = Slope::Slope_24; }
         }
         if (firstHihtPics.size() == 1)
         {
-            slope = 1;
             higtpick = firstHihtPics[0];
         }
-        int normalizeLowpic = juce::mapFromLog10(lowpick * binWidth, 20.f, 20000.f);
-        int normalizeHigtpic = juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f);
-        int normalizeMidpic = normalizeLowpic + (normalizeHigtpic - normalizeLowpic / 2);
+        auto a = juce::mapToLog10((juce::mapFromLog10(higtpick * binWidth, 20.f, 20000.f)+0.1f), 20.f, 20000.f);
+        cainSettings.highCutFreq = 20 + std::floor(a);
 
-        int midpic = std::floor(juce::mapToLog10(higtpick * binWidth, 20.f, 20000.f)/ binWidth);
+        float normalizeLowpic = juce::mapFromLog10((lowpick+1) * binWidth, 20.f, 20000.f);
+        float normalizeHigtpic = juce::mapFromLog10((higtpick+1) * binWidth, 20.f, 20000.f);
+        float normalizeMidpic = normalizeLowpic + (normalizeHigtpic - normalizeLowpic) / 2;
+
+        a = juce::mapToLog10(normalizeMidpic, 20.f, 20000.f) / binWidth;
+        int midpic = std::floor(a);
         float midSlope = 0;
         float midQuality = 0;
 
@@ -399,12 +405,23 @@ struct PathProducer
         { midpic = 0;}
         else
         {
-            midSlope = 0.25 * (summData[midpic] - std::max(summData[lowpick], summData[higtpick]));
+            midSlope = 24 * (std::max(summData[lowpick], summData[higtpick]) - summData[midpic])/1000;
             midQuality = normalizeHigtpic - normalizeLowpic;
+            midQuality = 1/(midQuality * 6 + 1);
         }
-      
+
+        cainSettings.peakGainInDecibels = midSlope;
+        cainSettings.peakQuality = midQuality;
+        cainSettings.peakFreq = 20 + midpic * binWidth;
+        cainSettings.lowCutFreq = 20 + lowpick * binWidth;
+        cainSettings.lowCutSlope = Slope::Slope_24;
+        cainSettings.peakBypassed = true;
+        cainSettings.highCutBypassed = true;
+        cainSettings.lowCutBypassed = true;
 
 
+
+        return cainSettings;
 
 
 
@@ -442,6 +459,8 @@ juce::Timer
     
     void paint(juce::Graphics& g) override;
     void resized() override;
+
+    void setUpdatedSating() {}
     
     void toggleAnalysisEnablement(bool enabled)
     {
@@ -451,6 +470,17 @@ juce::Timer
     void toggleAutoEnablement(bool enabled) {
         recordPicsEnable = enabled;
     }
+
+    ChainSettings getNewFilters(ChainSettings settings) { return leftPathProducer.generateNewFilters(settings); }
+
+    double getSamplerate() { return audioProcessor.getSampleRate(); }
+
+    ChainSettings getSettings() { return getChainSettings(audioProcessor.apvts); }
+
+    void updateChain(ChainSettings settings);
+
+    void updateResponseCurve();
+
 private:
     SimpleEQAudioProcessor& audioProcessor;
 
@@ -461,8 +491,6 @@ private:
     juce::Atomic<bool> parametersChanged { false };
     
     MonoChain monoChain;
-
-    void updateResponseCurve();
     
     juce::Path responseCurve;
 
